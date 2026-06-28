@@ -1,0 +1,36 @@
+name: Sync Log Updater
+
+on:
+  push:
+    branches:
+      - 'upload/**'
+      - 'sync/**'
+
+jobs:
+  update-sync-log:
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+          ssh-key: ${{ secrets.MACHINE_SYNC_SSH_KEY }}
+
+      - name: Update sync log
+        run: |
+          echo "## Sync Entry" >> _meta/sync-log.md
+          echo "" >> _meta/sync-log.md
+          echo '| Date | Branch | Files | Commit |' >> _meta/sync-log.md
+          echo '|------|--------|-------|--------|' >> _meta/sync-log.md
+          echo "| $(date -u +%Y-%m-%d) | \`${{ github.ref_name }}\` | \`${{ github.event.head_commit.modified }}\` | \`${{ github.sha }}\` |" >> _meta/sync-log.md
+          echo "" >> _meta/sync-log.md
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add _meta/sync-log.md
+          git diff --cached --quiet || git commit -m "docs: update sync log from ${{ github.ref_name }}"
+          git push origin main
